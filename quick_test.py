@@ -1,0 +1,16 @@
+from module2.fuzzy_system import build_fuzzy_system, get_urgency
+import time
+print("Starting...")
+start = time.time()
+simulator, _, _, _, _, _, _ = build_fuzzy_system()
+print(f"System built in {time.time() - start:.2f}s")
+val = get_urgency(simulator, 95, 90, 15, 100)
+print(f"A: {val}")
+val = get_urgency(simulator, 90, 30, 120, -20)
+print(f"B: {val}")
+val = get_urgency(simulator, 20, 90, 10, 100)
+print(f"C: {val}")
+val = get_urgency(simulator, 20, 30, 120, -100)
+print(f"D: {val}")
+val = get_urgency(simulator, 75, 55, 60, 10)
+print(f"E: {val}")

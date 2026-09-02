@@ -1,0 +1,16 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Large generated data files
+module2/data/
+profile_stats
+
+# OS
+.DS_Store
+Thumbs.db

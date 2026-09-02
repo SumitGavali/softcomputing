@@ -14,7 +14,10 @@ from pydantic import BaseModel, Field
 import joblib
 import pandas as pd
 
+from module2.api import router as module2_router
+
 app = FastAPI(title="Battery SoH & Range Prediction API", version="0.1.0")
+app.include_router(module2_router)
 
 # Load the trained model ONCE at startup (not per-request - would be slow)
 model = joblib.load("soh_random_forest_model.pkl")
