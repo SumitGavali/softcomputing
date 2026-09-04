@@ -10,7 +10,7 @@ import sys
 import pandas as pd
 import numpy as np
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -120,9 +120,12 @@ def main():
     print("\n" + SEP)
     print("[7/9] MODULE 1 FILES - UNMODIFIED VERIFICATION")
     print(SEP)
+    _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     frozen_files = [
         M1_MODEL_PATH, M1_PREDICTIONS_PATH,
-        "api.py", "battery_dataset_clean.csv", "battery_dataset_features.csv",
+        os.path.join(_ROOT, "module2", "Build", "api.py"),
+        os.path.join(_ROOT, "module1", "battery_dataset_clean.csv"),
+        os.path.join(_ROOT, "module1", "battery_dataset_features.csv"),
     ]
     all_ok = True
     for fp in frozen_files:

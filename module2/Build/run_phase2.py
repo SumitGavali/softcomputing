@@ -13,7 +13,9 @@ import sys
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -217,9 +219,12 @@ def main():
     print("[11] FILE SAFETY — FROZEN ASSETS UNCHANGED")
     print(SEP)
     frozen = [
-        "api.py", "soh_random_forest_model.pkl",
-        "test_predictions.csv", "battery_dataset_clean.csv",
-        "battery_dataset_features.csv", "module2/data/phase1_trips.csv",
+        os.path.join(_ROOT, "module2", "Build", "api.py"),
+        os.path.join(_ROOT, "module1", "soh_random_forest_model.pkl"),
+        os.path.join(_ROOT, "module1", "test_predictions.csv"),
+        os.path.join(_ROOT, "module1", "battery_dataset_clean.csv"),
+        os.path.join(_ROOT, "module1", "battery_dataset_features.csv"),
+        os.path.join(_ROOT, "module2", "data", "phase1_trips.csv"),
     ]
     all_safe = True
     for fp in frozen:

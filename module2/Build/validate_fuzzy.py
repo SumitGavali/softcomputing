@@ -1,5 +1,12 @@
+import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 from module2.fuzzy_system import build_fuzzy_system, get_urgency
 import time
 
@@ -38,8 +45,9 @@ def generate_plots():
     axes[3].set_title('Range Margin')
     urgency.view(sim=simulator, ax=axes[4])
     axes[4].set_title('Urgency')
+    build_dir = os.path.dirname(os.path.abspath(__file__))
     plt.tight_layout()
-    plt.savefig('membership_functions.png')
+    plt.savefig(os.path.join(build_dir, 'membership_functions.png'))
     plt.close()
 
     x_margin = np.arange(-100, 151, 15)
@@ -61,9 +69,9 @@ def generate_plots():
     ax.set_ylabel('SOC')
     ax.set_zlabel('Urgency')
     ax.set_title('Control Surface (SoH=80, Demand=60)')
-    plt.savefig('control_surface.png')
+    plt.savefig(os.path.join(build_dir, 'control_surface.png'))
     plt.close()
-    print("Plots saved: membership_functions.png, control_surface.png")
+    print("Plots saved to module2/Build: membership_functions.png, control_surface.png")
     print()
 
 def grid_sweep():

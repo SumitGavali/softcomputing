@@ -1,7 +1,13 @@
 import os
+import sys
 import time
 import pandas as pd
 import numpy as np
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 from module2.pipeline import RecommendationPipeline
 from module2.synthetic_data import SyntheticTripGenerator
 

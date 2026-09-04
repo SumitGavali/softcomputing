@@ -169,8 +169,8 @@ LON_MAX = 74.05    # [FIXED] Eastern boundary
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)  # project root (cp/)
 
-M1_MODEL_PATH       = os.path.join(_ROOT, "soh_random_forest_model.pkl")
-M1_PREDICTIONS_PATH = os.path.join(_ROOT, "test_predictions.csv")
+M1_MODEL_PATH       = os.path.join(_ROOT, "module1", "soh_random_forest_model.pkl")
+M1_PREDICTIONS_PATH = os.path.join(_ROOT, "module1", "test_predictions.csv")
 
 # Exact feature column order the frozen Module 1 model was trained on.
 # Sourced directly from api.py lines 61-67. DO NOT CHANGE.
