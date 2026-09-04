@@ -1,12 +1,20 @@
+import os
+import sys
 import pandas as pd
 import numpy as np
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 from module2.recommendation import get_recommendation
 from module2.fuzzy_system import build_fuzzy_system, get_urgency
 import time
 
 def main():
     print("Loading Phase 2 data...")
-    df = pd.read_csv("module2/data/phase2_trip_analysis.csv")
+    data_path = os.path.join(_ROOT, "module2", "data", "phase2_trip_analysis.csv")
+    df = pd.read_csv(data_path)
     
     print("Building FIS...")
     simulator, _, _, _, _, _, _ = build_fuzzy_system()

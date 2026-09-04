@@ -1,5 +1,12 @@
+import os
+import sys
 import time
 import pytest
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from module2.api import router

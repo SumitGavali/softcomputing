@@ -14,13 +14,31 @@ from pydantic import BaseModel, Field
 import joblib
 import pandas as pd
 
+from fastapi.middleware.cors import CORSMiddleware
 from module2.api import router as module2_router
+from module3.api import router as module3_router
 
-app = FastAPI(title="Battery SoH & Range Prediction API", version="0.1.0")
+app = FastAPI(title="Range Intelligence API - EV Fleet Battery & Station Engine", version="1.0.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(module2_router)
+app.include_router(module3_router)
+
+import os
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(os.path.dirname(_HERE))
+_MODEL_PATH = os.path.join(_ROOT, "module1", "soh_random_forest_model.pkl")
+if not os.path.isfile(_MODEL_PATH):
+    _MODEL_PATH = "soh_random_forest_model.pkl"
 
 # Load the trained model ONCE at startup (not per-request - would be slow)
-model = joblib.load("soh_random_forest_model.pkl")
+model = joblib.load(_MODEL_PATH)
 
 # -------------------------------------------------------------
 # Define the shape of an incoming request using Pydantic.
