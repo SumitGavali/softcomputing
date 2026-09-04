@@ -15,8 +15,21 @@ profile_stats
 .DS_Store
 Thumbs.db
 
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+*.env
+
 # Frontend
-frontend/node_modules/
-frontend/dist/
+module3/frontend/node_modules/
+module3/frontend/dist/
 module3/data/
+
+# IDE & Editor files
+.vscode/
+.idea/
+
+
+
 

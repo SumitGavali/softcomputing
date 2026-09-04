@@ -135,11 +135,19 @@ class SyntheticTripGenerator:
         indices  = self._rng.choice(len(terrains), size=n, p=probs)
         return [terrains[i] for i in indices]
 
-    def _sample_coordinates(self, n: int) -> tuple[np.ndarray, np.ndarray]:
-        """Sample synthetic (lat, lon) within the Pune metropolitan bounding box."""
-        lats = self._rng.uniform(LAT_MIN, LAT_MAX, size=n)
-        lons = self._rng.uniform(LON_MIN, LON_MAX, size=n)
-        return lats, lons
+    def _sample_coordinates(self, n: int) -> tuple[np.ndarray, np.ndarray, list, list]:
+        """Sample synthetic (lat, lon) strictly snapped to Pune commercial delivery road corridors."""
+        try:
+            from module3.pune_road_network import sample_road_network_coordinates
+            seed = int(self._rng.integers(0, 100000))
+            lats, lons, corridors, zones = sample_road_network_coordinates(n, seed=seed)
+            return lats, lons, corridors, zones
+        except Exception:
+            lats = self._rng.uniform(LAT_MIN, LAT_MAX, size=n)
+            lons = self._rng.uniform(LON_MIN, LON_MAX, size=n)
+            corridors = ["General Urban Road"] * n
+            zones = ["Pune Urban"] * n
+            return lats, lons, corridors, zones
 
     def _sample_m1_telemetry_rows(self, n: int) -> pd.DataFrame:
         """
@@ -206,7 +214,7 @@ class SyntheticTripGenerator:
         ambient_temp    = self._sample_band(TEMP_BANDS,           num_trips)
         terrain         = self._sample_terrain(num_trips)
         load_kg         = self._rng.uniform(MIN_LOAD_KG, MAX_LOAD_KG, size=num_trips)
-        lats, lons      = self._sample_coordinates(num_trips)
+        lats, lons, corridors, zones = self._sample_coordinates(num_trips)
         trip_ids        = [str(uuid.uuid4()) for _ in range(num_trips)]
 
         # ── Step 4: Assemble the Phase 1 dataset ──
@@ -217,9 +225,11 @@ class SyntheticTripGenerator:
             "trip_id":                   trip_ids,
             "vehicle_id":                VEHICLE_ID,
 
-            # Geography (synthetic Pune bounding box)
+            # Geography (Pune road network corridors)
             "latitude":                  lats.round(6),
             "longitude":                 lons.round(6),
+            "delivery_corridor":         corridors,
+            "zone":                      zones,
 
             # Module 1 outputs (grounded in test_predictions.csv telemetry)
             "soh_percent":               predictions["soh_percent"].values,

@@ -38,7 +38,14 @@ if not os.path.isfile(_MODEL_PATH):
     _MODEL_PATH = "soh_random_forest_model.pkl"
 
 # Load the trained model ONCE at startup (not per-request - would be slow)
-model = joblib.load(_MODEL_PATH)
+import warnings
+with warnings.catch_warnings():
+    try:
+        from sklearn.exceptions import InconsistentVersionWarning
+        warnings.simplefilter("ignore", category=InconsistentVersionWarning)
+    except ImportError:
+        pass
+    model = joblib.load(_MODEL_PATH)
 
 # -------------------------------------------------------------
 # Define the shape of an incoming request using Pydantic.
