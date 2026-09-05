@@ -73,7 +73,14 @@ class Module1Adapter:
 
         # Load model READ-ONLY. joblib.load does not write to the pkl file.
         logger.info("Loading frozen Module 1 model from: %s", M1_MODEL_PATH)
-        self._model = joblib.load(M1_MODEL_PATH)
+        import warnings
+        with warnings.catch_warnings():
+            try:
+                from sklearn.exceptions import InconsistentVersionWarning
+                warnings.simplefilter("ignore", category=InconsistentVersionWarning)
+            except ImportError:
+                pass
+            self._model = joblib.load(M1_MODEL_PATH)
         logger.info("Model loaded: %s", type(self._model).__name__)
 
         self._api_base_url = api_base_url.rstrip("/")
