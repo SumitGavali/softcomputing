@@ -109,13 +109,11 @@ $$
 d = 2R \arcsin \sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}
 $$
 
-  - **Cluster Centroid & Deficit Energy**: Computes the geographic center and aggregate deficit energy for each cluster:
+  - **Cluster Centroid & Deficit Energy**: Computes the geographic center coordinate vector $\mathbf{c}_k = (\bar{\phi}_k, \bar{\lambda}_k)$ and aggregate deficit energy ($E_k$ in kWh) across all $N_k$ trip deficit points in cluster $k$:
 
 $$
 \mathbf{c}_k = \frac{1}{N_k} \sum_{i=1}^{N_k} \mathbf{p}_i, \qquad E_k = \sum_{i=1}^{N_k} E_i
 $$
-
-    where $\mathbf{p}_i = (\text{lat}_i, \text{lon}_i)$ and $E_i$ is the individual trip battery deficit in kWh.
 - **Multi-Objective Placement Optimization**:
   Maximizes deficit fulfillment while enforcing urban circuity ($\tau = 1.32$), minimum station spacing ($2.0\text{ km}$), and snapping to verified commercial forecourts and metro depots.
 - **Street-Level Routing**: OpenStreetMap OSRM routing engine generating turn-by-turn GeoJSON navigation paths across roads and bridges.

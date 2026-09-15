@@ -72,7 +72,7 @@ $$
 d = 2R \arcsin \sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}
 $$
 
-* **Cluster Centroid & Deficit Energy:** Aggregates coordinates and deficit energy for candidate clusters:
+* **Cluster Centroid & Deficit Energy:** Computes the geographic center coordinate vector $\mathbf{c}_k = (\bar{\phi}_k, \bar{\lambda}_k)$ and aggregate deficit energy ($E_k$ in kWh) across all $N_k$ trip deficit points in cluster $k$:
 
 $$
 \mathbf{c}_k = \frac{1}{N_k} \sum_{i=1}^{N_k} \mathbf{p}_i, \qquad E_k = \sum_{i=1}^{N_k} E_i
