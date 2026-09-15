@@ -268,17 +268,9 @@ export default function TripSimulatorModal() {
             {simResult ? (
               <>
                 {/* Driver Action Banner */}
-                <div style={{
-                  padding: '16px',
-                  borderRadius: '10px',
-                  background: simResult.charging_required ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                  border: `1px solid ${simResult.charging_required ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`,
-                  color: 'var(--text-primary)',
-                  fontWeight: 600,
-                  fontSize: '14px',
-                  lineHeight: 1.5,
-                }}>
-                  {simResult.recommendation_text}
+                <div className={`dispatch-alert-banner ${simResult.charging_required ? 'banner-deficit' : 'banner-safe'}`}>
+                  <span>{simResult.charging_required ? '⚠️' : '✅'}</span>
+                  <span>{simResult.recommendation_text}</span>
                 </div>
 
                 {/* Metrics Breakdown Grid */}

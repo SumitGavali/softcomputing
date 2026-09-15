@@ -30,6 +30,9 @@ module3/data/
 .vscode/
 .idea/
 
+# Local Documentation & Working Notes (Private Reference)
+Documentation/
+
 
 
 

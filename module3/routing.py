@@ -9,6 +9,7 @@ with LRU caching, timeout guards, and robust offline circuity fallback.
 import json
 import logging
 import math
+import time
 import urllib.request
 from functools import lru_cache
 from typing import Dict, Any, List, Tuple, Optional
@@ -19,6 +20,12 @@ from module3.clustering import haversine_distance, calculate_road_distance_km
 logger = logging.getLogger(__name__)
 
 OSRM_BASE_URL = "https://router.project-osrm.org/route/v1/driving"
+
+# Circuit breaker state for external OSRM routing service
+_osrm_circuit_open_until = 0.0
+_osrm_consecutive_failures = 0
+OSRM_CIRCUIT_COOLDOWN_SEC = 60.0
+OSRM_MAX_CONSECUTIVE_FAILURES = 2
 
 
 def _generate_curved_road_waypoints(
@@ -65,34 +72,50 @@ def get_street_route(
     Fetches actual turn-by-turn driving route between two GPS coordinates using OpenStreetMap OSRM.
     Returns GeoJSON coordinates, driving distance in km, and estimated transit duration in minutes.
     Results are cached in-memory for instant sub-millisecond lookups.
+    Includes an adaptive circuit breaker protecting against remote network latency or rate-limiting.
     """
+    global _osrm_circuit_open_until, _osrm_consecutive_failures
+
+    now = time.time()
     # Round coordinates to ~11 meters to maximize cache hit rate
     url = f"{OSRM_BASE_URL}/{lon1_round},{lat1_round};{lon2_round},{lat2_round}?overview=full&geometries=geojson"
 
-    try:
-        req = urllib.request.Request(
-            url,
-            headers={
-                "User-Agent": "RangeIntelligence-EVOptimizer/1.0 (fleet-urban-routing)",
-                "Accept": "application/json",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=1.8) as response:
-            if response.status == 200:
-                data = json.loads(response.read().decode("utf-8"))
-                if data.get("code") == "Ok" and data.get("routes"):
-                    route = data["routes"][0]
-                    dist_km = round(route["distance"] / 1000.0, 2)
-                    duration_min = round(route["duration"] / 60.0, 1)
-                    geojson_coords = route["geometry"]["coordinates"]  # List of [lon, lat]
-                    return {
-                        "source": "osrm_live",
-                        "distance_km": dist_km,
-                        "duration_min": duration_min,
-                        "coordinates": geojson_coords,
-                    }
-    except Exception as e:
-        logger.debug("OSRM route fetch failed or timed out: %s; using circuity fallback", str(e))
+    # Only attempt network call if circuit breaker is not currently tripped
+    if now >= _osrm_circuit_open_until:
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "RangeIntelligence-EVOptimizer/1.0 (fleet-urban-routing)",
+                    "Accept": "application/json",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=1.5) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode("utf-8"))
+                    if data.get("code") == "Ok" and data.get("routes"):
+                        route = data["routes"][0]
+                        dist_km = round(route["distance"] / 1000.0, 2)
+                        duration_min = round(route["duration"] / 60.0, 1)
+                        geojson_coords = route["geometry"]["coordinates"]  # List of [lon, lat]
+                        _osrm_consecutive_failures = 0
+                        return {
+                            "source": "osrm_live",
+                            "distance_km": dist_km,
+                            "duration_min": duration_min,
+                            "coordinates": geojson_coords,
+                        }
+        except Exception as e:
+            _osrm_consecutive_failures += 1
+            if _osrm_consecutive_failures >= OSRM_MAX_CONSECUTIVE_FAILURES:
+                _osrm_circuit_open_until = now + OSRM_CIRCUIT_COOLDOWN_SEC
+                logger.info(
+                    "OSRM service unavailable (%s). Circuit breaker OPEN for %.0fs; using circuity model fallback.",
+                    str(e),
+                    OSRM_CIRCUIT_COOLDOWN_SEC,
+                )
+            else:
+                logger.debug("OSRM route fetch failed: %s; using circuity fallback", str(e))
 
     # Offline/timeout fallback: realistic circuity-adjusted road geometry
     dist_km = calculate_road_distance_km(lat1_round, lon1_round, lat2_round, lon2_round)

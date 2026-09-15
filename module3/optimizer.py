@@ -145,6 +145,13 @@ class StationPlacementOptimizer:
                 priority = 2
                 priority_label = "SUPPORT STATION"
 
+            covered_trip_ids = [str(d.get("trip_id", f"trip_{i}")) for i, d in enumerate(covered_trips)]
+            critical_trip_ids = [
+                str(d.get("trip_id", f"trip_{i}"))
+                for i, d in enumerate(covered_trips)
+                if float(d.get("fuzzy_urgency", 0.0)) >= 80.0 or float(d.get("range_margin_km", 0.0)) < -10.0
+            ]
+
             station_info = {
                 "station_id": f"CS-OPT-{len(selected_stations) + 1:02d}",
                 "name": station_name,
@@ -161,6 +168,8 @@ class StationPlacementOptimizer:
                 "priority_label": priority_label,
                 "equipment": ports_config,
                 "grid_capacity_kw": grid_cap_kw,
+                "covered_trip_ids": covered_trip_ids,
+                "critical_trip_ids": critical_trip_ids,
             }
             selected_stations.append(station_info)
 
@@ -188,7 +197,7 @@ class StationPlacementOptimizer:
                 for d in deficit_records:
                     air_dist = haversine_distance(c_lat, c_lon, d["latitude"], d["longitude"])
                     if air_dist <= self.coverage_radius_km:
-                        covered_trips.append(d["trip_id"])
+                        covered_trips.append(d)
                         covered_kwh += float(d.get("charging_requirement_kwh", 3.0))
                         if float(d.get("fuzzy_urgency", 0.0)) >= 80.0 or float(d.get("range_margin_km", 0.0)) < -10.0:
                             critical_count += 1
@@ -210,6 +219,13 @@ class StationPlacementOptimizer:
                     priority = 2
                     priority_label = "SUPPORT STATION"
 
+                covered_trip_ids = [str(d.get("trip_id", f"trip_{i}")) for i, d in enumerate(covered_trips)]
+                critical_trip_ids = [
+                    str(d.get("trip_id", f"trip_{i}"))
+                    for i, d in enumerate(covered_trips)
+                    if float(d.get("fuzzy_urgency", 0.0)) >= 80.0 or float(d.get("range_margin_km", 0.0)) < -10.0
+                ]
+
                 station_info = {
                     "station_id": f"CS-OPT-{len(selected_stations) + 1:02d}",
                     "name": p["name"],
@@ -226,11 +242,88 @@ class StationPlacementOptimizer:
                     "priority_label": priority_label,
                     "equipment": ports_config,
                     "grid_capacity_kw": p.get("grid_capacity_kw", 200.0),
+                    "covered_trip_ids": covered_trip_ids,
+                    "critical_trip_ids": critical_trip_ids,
                 }
                 selected_stations.append(station_info)
                 available_parcels.remove(p)
 
+        # Relative Priority Calibration Pass
+        self._calibrate_station_priorities(selected_stations)
+
         return selected_stations
+
+    def _calibrate_station_priorities(self, stations: List[Dict[str, Any]]) -> None:
+        """
+        Calibrates priority scores (2 to 5) and labels across selected stations.
+        Applies a multi-tier relative ranking algorithm based on composite charging demand
+        (energy volume + critical deficit weighting) to guarantee distinct, realistic rollout
+        tiers (Critical, High, Moderate, Standard) for any k in [1, 15].
+        """
+        if not stations:
+            return
+
+        for s in stations:
+            kwh = float(s.get("covered_deficit_kwh", 0.0))
+            crit = float(s.get("critical_shortages_covered", 0))
+            s["_demand_score"] = kwh + (crit * 4.0)
+
+        sorted_indices = sorted(
+            range(len(stations)),
+            key=lambda i: stations[i]["_demand_score"],
+            reverse=True,
+        )
+        total_n = len(stations)
+
+        for rank, idx in enumerate(sorted_indices):
+            st = stations[idx]
+            score = st["_demand_score"]
+
+            # Edge Case: Zero or negligible demand
+            if score <= 0.5:
+                st["priority_score"] = 2
+                st["priority_label"] = "STANDARD ACCESS"
+                continue
+
+            if total_n == 1:
+                st["priority_score"] = 5
+                st["priority_label"] = "CRITICAL HUB"
+            elif total_n == 2:
+                st["priority_score"] = 5 if rank == 0 else 4
+                st["priority_label"] = "CRITICAL HUB" if rank == 0 else "HIGH PRIORITY"
+            elif total_n == 3:
+                if rank == 0:
+                    st["priority_score"] = 5
+                    st["priority_label"] = "CRITICAL HUB"
+                elif rank == 1:
+                    st["priority_score"] = 4
+                    st["priority_label"] = "HIGH PRIORITY"
+                else:
+                    st["priority_score"] = 3
+                    st["priority_label"] = "MODERATE DEMAND"
+            elif total_n == 4:
+                scores = [5, 4, 3, 2]
+                labels = ["CRITICAL HUB", "HIGH PRIORITY", "MODERATE DEMAND", "STANDARD ACCESS"]
+                st["priority_score"] = scores[rank]
+                st["priority_label"] = labels[rank]
+            else:
+                # Quantile / Percentile tiering for N >= 5
+                pct = rank / total_n
+                if pct < 0.25:
+                    st["priority_score"] = 5
+                    st["priority_label"] = "CRITICAL HUB"
+                elif pct < 0.50:
+                    st["priority_score"] = 4
+                    st["priority_label"] = "HIGH PRIORITY"
+                elif pct < 0.75:
+                    st["priority_score"] = 3
+                    st["priority_label"] = "MODERATE DEMAND"
+                else:
+                    st["priority_score"] = 2
+                    st["priority_label"] = "STANDARD ACCESS"
+
+        for s in stations:
+            s.pop("_demand_score", None)
 
     def _size_station_equipment(
         self,
@@ -283,13 +376,24 @@ class StationPlacementOptimizer:
         """
         Calculates operational fleet ROI metrics with customizable towing and deadhead parameters.
         """
-        total_covered_trips = sum(s["covered_trips_count"] for s in stations)
-        total_covered_kwh = sum(s["covered_deficit_kwh"] for s in stations)
-        total_critical = sum(s["critical_shortages_covered"] for s in stations)
+        # Deduplicate covered trips across all stations to eliminate multi-counting in overlapping catchments
+        unique_covered_trip_ids = set()
+        unique_critical_trip_ids = set()
+        for s in stations:
+            unique_covered_trip_ids.update(s.get("covered_trip_ids", []))
+            unique_critical_trip_ids.update(s.get("critical_trip_ids", []))
 
         total_deficits_count = len(df_deficits)
+        if unique_covered_trip_ids:
+            unique_covered_count = min(total_deficits_count, len(unique_covered_trip_ids))
+            unique_critical_count = min(total_deficits_count, len(unique_critical_trip_ids))
+        else:
+            raw_sum = sum(s["covered_trips_count"] for s in stations)
+            unique_covered_count = min(total_deficits_count, raw_sum)
+            unique_critical_count = min(total_deficits_count, sum(s["critical_shortages_covered"] for s in stations))
+
         coverage_pct = round(
-            (total_covered_trips / total_deficits_count * 100.0)
+            min(100.0, (unique_covered_count / total_deficits_count * 100.0))
             if total_deficits_count > 0
             else 0.0,
             1,
@@ -303,7 +407,7 @@ class StationPlacementOptimizer:
         # 1. Deadhead kilometers saved (grounded in urban road circuity tau = 1.32):
         avg_deadhead_saved_km_per_event = round(3.5 * URBAN_CIRCUITY_FACTOR, 1)  # ~4.6 km actual road detour avoided per event
         total_deadhead_km_saved_monthly = (
-            total_covered_trips
+            unique_covered_count
             * avg_deadhead_saved_km_per_event
             * (working_days / 30.0)
         )
@@ -311,7 +415,7 @@ class StationPlacementOptimizer:
 
         # 2. Stranded vehicle rescues averted:
         monthly_averted_towing = (
-            total_critical
+            unique_critical_count
             * ROI_CONSTANTS["ESTIMATED_AVERTED_FAILURES_RATIO"]
             * (working_days / 30.0)
         )
@@ -327,7 +431,7 @@ class StationPlacementOptimizer:
         return {
             "total_stations_recommended": len(stations),
             "fleet_deficit_coverage_percent": coverage_pct,
-            "total_covered_trips": total_covered_trips,
+            "total_covered_trips": unique_covered_count,
             "monthly_deadhead_km_saved": round(total_deadhead_km_saved_monthly, 0),
             "monthly_deadhead_savings_inr": round(monthly_deadhead_cost_saved, 0),
             "monthly_stranded_events_averted": round(monthly_averted_towing, 1),

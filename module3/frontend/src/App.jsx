@@ -34,7 +34,7 @@ const FALLBACK_STATIONS_DATA = {
   stations: [
     {
       station_id: 'CS-PUNE-01',
-      name: 'Viman Nagar Commercial Hub Hub',
+      name: 'Viman Nagar Commercial Hub',
       zone: 'East',
       latitude: 18.58646,
       longitude: 73.90558,
@@ -44,7 +44,7 @@ const FALLBACK_STATIONS_DATA = {
       critical_shortages_covered: 8,
       priority_score: 5,
       priority_label: 'CRITICAL HUB',
-      equipment: { ac_slow_ports: 4, dc_fast_ports: 2, battery_swap_bays: 1, total_simultaneous_capacity_kw: 53.2 },
+      equipment: { ac_slow_ports: 4, dc_fast_ports: 2, battery_swap_bays: 1, total_simultaneous_capacity_kw: 53.2, estimated_capex_inr: 800000 },
     },
     {
       station_id: 'CS-PUNE-02',
@@ -58,11 +58,11 @@ const FALLBACK_STATIONS_DATA = {
       critical_shortages_covered: 5,
       priority_score: 4,
       priority_label: 'HIGH PRIORITY',
-      equipment: { ac_slow_ports: 3, dc_fast_ports: 2, battery_swap_bays: 1, total_simultaneous_capacity_kw: 49.9 },
+      equipment: { ac_slow_ports: 3, dc_fast_ports: 2, battery_swap_bays: 1, total_simultaneous_capacity_kw: 49.9, estimated_capex_inr: 755000 },
     },
     {
       station_id: 'CS-PUNE-03',
-      name: 'Hadapsar Industrial & Logistics Hub Hub',
+      name: 'Hadapsar Industrial & Logistics Hub',
       zone: 'South-East',
       latitude: 18.52014,
       longitude: 73.99336,
@@ -72,11 +72,11 @@ const FALLBACK_STATIONS_DATA = {
       critical_shortages_covered: 7,
       priority_score: 4,
       priority_label: 'HIGH PRIORITY',
-      equipment: { ac_slow_ports: 4, dc_fast_ports: 2, battery_swap_bays: 1, total_simultaneous_capacity_kw: 53.2 },
+      equipment: { ac_slow_ports: 4, dc_fast_ports: 2, battery_swap_bays: 1, total_simultaneous_capacity_kw: 53.2, estimated_capex_inr: 800000 },
     },
     {
       station_id: 'CS-PUNE-04',
-      name: 'Hinjawadi IT Park Hub Hub',
+      name: 'Hinjawadi IT Park Hub',
       zone: 'West',
       latitude: 18.59130,
       longitude: 73.73890,
@@ -84,9 +84,9 @@ const FALLBACK_STATIONS_DATA = {
       covered_trips_count: 35,
       covered_deficit_kwh: 162.4,
       critical_shortages_covered: 6,
-      priority_score: 4,
-      priority_label: 'HIGH PRIORITY',
-      equipment: { ac_slow_ports: 4, dc_fast_ports: 2, battery_swap_bays: 1, total_simultaneous_capacity_kw: 53.2 },
+      priority_score: 3,
+      priority_label: 'MODERATE DEMAND',
+      equipment: { ac_slow_ports: 4, dc_fast_ports: 2, battery_swap_bays: 1, total_simultaneous_capacity_kw: 53.2, estimated_capex_inr: 800000 },
     },
     {
       station_id: 'CS-PUNE-05',
@@ -98,9 +98,9 @@ const FALLBACK_STATIONS_DATA = {
       covered_trips_count: 31,
       covered_deficit_kwh: 138.5,
       critical_shortages_covered: 5,
-      priority_score: 4,
-      priority_label: 'HIGH PRIORITY',
-      equipment: { ac_slow_ports: 3, dc_fast_ports: 2, battery_swap_bays: 1, total_simultaneous_capacity_kw: 49.9 },
+      priority_score: 2,
+      priority_label: 'STANDARD ACCESS',
+      equipment: { ac_slow_ports: 3, dc_fast_ports: 2, battery_swap_bays: 1, total_simultaneous_capacity_kw: 49.9, estimated_capex_inr: 755000 },
     },
   ],
   roi_analysis: {
@@ -209,6 +209,7 @@ const FALLBACK_ROAD_DEFICITS = [
   const fetchAllData = async (k = kStations, radius = coverageRadius) => {
     setLoading(true);
     let online = false;
+    let result = { success: false, stationsCount: 0 };
 
     try {
       // 1. Health check
@@ -220,17 +221,19 @@ const FALLBACK_ROAD_DEFICITS = [
         setApiOnline(false);
       }
 
-      // 2. Fetch Stations & ROI
-      const stationsRes = await fetch(`/module3/stations/recommendations?k_stations=${k}&coverage_radius_km=${radius}`, { signal: AbortSignal.timeout(4000) }).catch(() => null);
+      // 2. Fetch Stations & ROI (with resilient 10s timeout)
+      const stationsRes = await fetch(`/module3/stations/recommendations?k_stations=${k}&coverage_radius_km=${radius}`, { signal: AbortSignal.timeout(10000) }).catch(() => null);
       if (stationsRes && stationsRes.ok) {
         const sData = await stationsRes.json();
         setStationsData(sData);
+        result = { success: true, stationsCount: sData.stations ? sData.stations.length : 0 };
       } else if (!stationsData) {
         setStationsData(FALLBACK_STATIONS_DATA);
+        result = { success: true, stationsCount: 5, fallback: true };
       }
 
       // 3. Fetch Heatmap Deficits (Snapped directly to Pune road network)
-      const heatRes = await fetch('/module3/heatmap/deficits?limit=1200', { signal: AbortSignal.timeout(4000) }).catch(() => null);
+      const heatRes = await fetch('/module3/heatmap/deficits?limit=1200', { signal: AbortSignal.timeout(10000) }).catch(() => null);
       if (heatRes && heatRes.ok) {
         const hData = await heatRes.json();
         setHeatPoints(hData);
@@ -239,7 +242,7 @@ const FALLBACK_ROAD_DEFICITS = [
       }
 
       // 4. Fetch Fleet Overview
-      const fleetRes = await fetch('/module3/fleet/overview', { signal: AbortSignal.timeout(4000) }).catch(() => null);
+      const fleetRes = await fetch('/module3/fleet/overview', { signal: AbortSignal.timeout(10000) }).catch(() => null);
       if (fleetRes && fleetRes.ok) {
         const fData = await fleetRes.json();
         setFleetData(fData);
@@ -248,7 +251,7 @@ const FALLBACK_ROAD_DEFICITS = [
       }
 
       // 5. Fetch Hourly Demand
-      const demandRes = await fetch('/module3/demand/hourly', { signal: AbortSignal.timeout(4000) }).catch(() => null);
+      const demandRes = await fetch('/module3/demand/hourly', { signal: AbortSignal.timeout(10000) }).catch(() => null);
       if (demandRes && demandRes.ok) {
         const dData = await demandRes.json();
         setDemandData(dData);
@@ -263,6 +266,7 @@ const FALLBACK_ROAD_DEFICITS = [
     } finally {
       setLoading(false);
     }
+    return result;
   };
 
   // Auto-reconnect loop: poll backend every 2.5 seconds if offline, and seamlessly fetch live data when ready
@@ -288,8 +292,8 @@ const FALLBACK_ROAD_DEFICITS = [
     fetchAllData();
   }, []);
 
-  const handleRecalculate = () => {
-    fetchAllData(kStations, coverageRadius);
+  const handleRecalculate = async (customK = kStations, customRadius = coverageRadius) => {
+    return await fetchAllData(customK, customRadius);
   };
 
   return (

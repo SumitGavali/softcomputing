@@ -114,8 +114,8 @@ def main():
     # Determine Python executable
     py_exec = sys.executable or "python"
 
-    # 1. Start FastAPI Backend Process
-    backend_cmd = [py_exec, "-u", BACKEND_SCRIPT, "--api", "--port", "8000"]
+    # 1. Start FastAPI Backend Process with --reload for hot reloading
+    backend_cmd = [py_exec, "-u", BACKEND_SCRIPT, "--api", "--port", "8000", "--reload"]
     print(f"{YELLOW}[RUNNER]{RESET} Starting FastAPI backend on port 8000...")
     backend_proc = subprocess.Popen(
         backend_cmd,

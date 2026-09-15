@@ -65,8 +65,9 @@ class DemandForecaster:
         
         # Aggregate deficit energy specifically
         deficit_trips = df_trips[
-            (df_trips.get("charging_required", pd.Series([False]*len(df_trips))) == True) |
-            (df_trips.get("fuzzy_urgency", pd.Series([0]*len(df_trips))) >= 60)
+            (df_trips.get("charging_required", pd.Series([False] * len(df_trips))) == True)
+            | (df_trips.get("fuzzy_urgency", pd.Series([0.0] * len(df_trips))) >= 50.0)
+            | (df_trips.get("range_margin_km", pd.Series([0.0] * len(df_trips))) < 2.0)
         ]
         total_deficit_kwh = float(deficit_trips["charging_requirement_kwh"].sum()) if not deficit_trips.empty and "charging_requirement_kwh" in deficit_trips else total_energy_kwh * 0.28
 

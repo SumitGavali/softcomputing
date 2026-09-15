@@ -64,10 +64,11 @@ Small EV fleet operators (50–2,000 two-wheelers and three-wheelers in delivery
 ## Core Algorithms & Formulations
 
 ### 1. Spatial Deficit Clustering
-Filters trips meeting any shortage criterion:
-$$\text{Deficit Condition} = (\text{charging\_required} == \text{True}) \lor (\text{fuzzy\_urgency} \ge 60) \lor (\text{range\_margin\_km} < 0)$$
+Filters trips meeting any battery shortage or high charging urgency criterion:
+$$\text{Deficit Condition} = (\text{charging\_required} == \text{True}) \lor (\text{fuzzy\_urgency} \ge 50.0) \lor (\text{range\_margin\_km} < 2.0\text{ km})$$
 
-* **DBSCAN (Density-Based Spatial Clustering of Applications with Noise):** Uses Haversine distance metric with $\epsilon = 2.0\text{ km}$ and $\text{min\_samples} = 5$ to detect core charging bottleneck corridors while discarding isolated random dropouts.
+* **DBSCAN (Density-Based Spatial Clustering of Applications with Noise):** Uses the great-circle Haversine metric on radians with angular radius $\varepsilon = \frac{2.0\text{ km}}{6371.0088\text{ km}} \approx 3.139 \times 10^{-4}\text{ rad}$ and $\text{MinPts} = 5$ to detect core commercial charging bottleneck corridors while filtering out isolated transient dropouts:
+  $$d_{\text{haversine}}(p_i, p_j) = 2 R \arcsin \sqrt{\sin^2\left(\frac{\phi_j - \phi_i}{2}\right) + \cos(\phi_i) \cos(\phi_j) \sin^2\left(\frac{\lambda_j - \lambda_i}{2}\right)}$$
 * **Fuzzy C-Means (FCM) Soft Computing Partition:** Computes degrees of membership $u_{ij}$ of deficit $i$ to station centroid $j$:
 $$u_{ij} = \frac{1}{\sum_{k=1}^{C} \left(\frac{d(x_i, c_j)}{d(x_i, c_k)}\right)^{\frac{2}{m-1}}}$$
 where $m = 2.0$ is the fuzzifier, reflecting that delivery routes near boundary areas can access overlapping hubs.

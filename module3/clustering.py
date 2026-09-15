@@ -107,76 +107,56 @@ import json
 from functools import lru_cache
 
 
-@lru_cache(maxsize=256)
-def _reverse_geocode_nominatim(lat_round: float, lon_round: float) -> Optional[Dict[str, str]]:
-    """
-    Reverse geocodes coordinate via OpenStreetMap Nominatim with tight timeout.
-    Returns human-friendly locality/neighbourhood name and district.
-    """
-    try:
-        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat_round}&lon={lon_round}&format=json&zoom=14&addressdetails=1"
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "RangeIntelligence-EVFleet/1.0 (fleet-placement-optimizer)"}
-        )
-        with urllib.request.urlopen(req, timeout=0.8) as resp:
-            if resp.status == 200:
-                data = json.loads(resp.read().decode("utf-8"))
-                addr = data.get("address", {})
-                name = (
-                    addr.get("suburb")
-                    or addr.get("neighbourhood")
-                    or addr.get("commercial")
-                    or addr.get("industrial")
-                    or addr.get("residential")
-                    or addr.get("city_district")
-                    or addr.get("town")
-                    or addr.get("city")
-                )
-                district = addr.get("city") or addr.get("state_district") or "Metro"
-                if name:
-                    return {"landmark_name": f"{name} Hub", "zone": district}
-    except Exception:
-        pass
-    return None
-
-
 def find_nearest_landmark(lat: float, lon: float) -> Dict[str, Any]:
     """
-    Dynamically identifies human-readable station and zone naming:
-    1. Fast-path reverse geocoding via Nominatim (with LRU caching).
-    2. Local landmark library (if coordinates are within 8 km of known hubs).
-    3. Cardinal sector geometric fallback (for arbitrary cities or offline operation).
+    Dynamically identifies human-readable station and zone naming with zero network latency:
+    1. Local verified landmarks library (within 10 km).
+    2. Verified candidate commercial parcels (within 10 km).
+    3. Cardinal sector geometric fallback for arbitrary coordinates.
     """
-    # 1. Attempt dynamic geocoding
-    geo_res = _reverse_geocode_nominatim(round(lat, 3), round(lon, 3))
-    if geo_res:
-        return {
-            "landmark_name": geo_res["landmark_name"],
-            "zone": geo_res["zone"],
-            "distance_km": 0.0,
-            "source": "geocoded",
-        }
-
-    # 2. Check predefined landmarks
-    closest = None
-    min_dist = float("inf")
+    # 1. Check predefined Pune urban landmarks (fast in-memory spherical lookup)
+    closest_lm = None
+    min_dist_lm = float("inf")
     for lm in PUNE_LANDMARKS:
         dist = haversine_distance(lat, lon, lm["lat"], lm["lon"])
-        if dist < min_dist:
-            min_dist = dist
-            closest = lm
+        if dist < min_dist_lm:
+            min_dist_lm = dist
+            closest_lm = lm
 
-    if closest and min_dist <= 8.0:
+    if closest_lm and min_dist_lm <= 6.0:
         return {
-            "landmark_name": closest["name"],
-            "zone": closest["zone"],
-            "distance_km": round(min_dist, 2),
+            "landmark_name": closest_lm["name"],
+            "zone": closest_lm["zone"],
+            "distance_km": round(min_dist_lm, 2),
+            "source": "landmark_match",
+        }
+
+    # 2. Check candidate commercial parcels
+    closest_p = None
+    min_dist_p = float("inf")
+    for p in PUNE_CANDIDATE_PARCELS:
+        dist = haversine_distance(lat, lon, p["lat"], p["lon"])
+        if dist < min_dist_p:
+            min_dist_p = dist
+            closest_p = p
+
+    if closest_p and min_dist_p <= 8.0:
+        return {
+            "landmark_name": closest_p["name"],
+            "zone": closest_p["zone"],
+            "distance_km": round(min_dist_p, 2),
+            "source": "parcel_match",
+        }
+
+    if closest_lm and min_dist_lm <= 12.0:
+        return {
+            "landmark_name": closest_lm["name"],
+            "zone": closest_lm["zone"],
+            "distance_km": round(min_dist_lm, 2),
             "source": "landmark_match",
         }
 
     # 3. Geometric sector fallback for arbitrary coordinates
-    # Using 18.52 / 73.85 reference or generic quadrant
     d_lat = lat - 18.5204
     d_lon = lon - 73.8567
     ns = "North" if d_lat >= 0 else "South"
@@ -186,7 +166,7 @@ def find_nearest_landmark(lat: float, lon: float) -> Dict[str, Any]:
     return {
         "landmark_name": f"{sector} Transit Sector",
         "zone": f"{sector} Corridor",
-        "distance_km": round(min_dist, 2) if closest else 0.0,
+        "distance_km": round(min_dist_lm, 2) if closest_lm else 0.0,
         "source": "sector_fallback",
     }
 
@@ -216,8 +196,8 @@ class DeficitClusterEngine:
 
         # Conditions indicating charging need
         cond_charging_req = df_trips.get("charging_required", pd.Series([False] * len(df_trips))) == True
-        cond_urgency = df_trips.get("fuzzy_urgency", pd.Series([0.0] * len(df_trips))) >= 60.0
-        cond_margin = df_trips.get("range_margin_km", pd.Series([0.0] * len(df_trips))) < 0.0
+        cond_urgency = df_trips.get("fuzzy_urgency", pd.Series([0.0] * len(df_trips))) >= 50.0
+        cond_margin = df_trips.get("range_margin_km", pd.Series([0.0] * len(df_trips))) < 2.0
 
         deficit_mask = cond_charging_req | cond_urgency | cond_margin
         df_deficits = df_trips[deficit_mask].copy()
