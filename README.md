@@ -82,7 +82,8 @@ This project integrates three complementary pillars of computational intelligenc
   $$\mu_C(z) = \max_{k=1}^{K} \left[ \min\left( \mu_{A_1^k}(\text{SoH}), \, \mu_{A_2^k}(\text{SoC}), \, \mu_{A_3^k}(E_{\text{trip}}), \, \mu_{A_4^k}(\Delta_{\text{margin}}), \, \mu_{B^k}(z) \right) \right]$$
   Computes the continuous centroid balance point $z^*$ across the output universe of discourse $Z = [0, 100]\%$:
   $$z^* = \frac{\int_{Z} z \cdot \mu_C(z) \, dz}{\int_{Z} \mu_C(z) \, dz} \quad \xrightarrow{\text{discrete discretization}} \quad z^* = \frac{\sum_{j=1}^{M} z_j \cdot \mu_C(z_j)}{\sum_{j=1}^{M} \mu_C(z_j)}$$
-  The resulting crisp scalar defines the dispatch urgency priority score $\text{fuzzy\_urgency} = z^* \in [0, 100]\%$:
+  The resulting crisp scalar defines the dispatch urgency priority score (`fuzzy_urgency`):
+  $$P_{\text{urgency}} = z^* \in [0, 100]\%$$
   - **Critical Deficit** ($z^* \ge 75\%$): Mandatory mid-route charging intervention required before dispatch.
   - **Deficit Warning** ($50\% \le z^* < 75\%$): Opportunity top-up recommended along designated route corridor.
   - **Safe Margin** ($z^* < 50\%$): Vehicle possesses adequate operational buffer to complete assignment safely.
@@ -93,7 +94,8 @@ This project integrates three complementary pillars of computational intelligenc
 - **DBSCAN Spatial Density Clustering**:
   Groups spatial battery shortage events into dense geographic charging deficit hotspots using a great-circle spherical distance metric:
   - **Trip Deficit Ingestion Condition**:
-    $$\text{Deficit}(\text{trip}) \iff (\text{charging\_required} = \text{True}) \lor (\text{fuzzy\_urgency} \ge 50.0\%) \lor (\Delta_{\text{margin}} < 2.0\text{ km})$$
+    $$\text{Deficit}(\text{trip}) \iff (C_{\text{req}} = \text{True}) \lor (P_{\text{urgency}} \ge 50.0\%) \lor (\Delta_{\text{margin}} < 2.0\text{ km})$$
+    where $C_{\text{req}}$ denotes `charging_required`, $P_{\text{urgency}}$ denotes `fuzzy_urgency`, and $\Delta_{\text{margin}}$ denotes `range_margin_km`.
   - **Spherical Haversine Metric**:
     $$d_{\text{haversine}}(p_i, p_j) = 2 R \arcsin \sqrt{\sin^2\left(\frac{\phi_j - \phi_i}{2}\right) + \cos(\phi_i) \cos(\phi_j) \sin^2\left(\frac{\lambda_j - \lambda_i}{2}\right)}$$
     where $R = 6371.0088\text{ km}$, $\phi$ denotes latitude in radians, and $\lambda$ denotes longitude in radians.

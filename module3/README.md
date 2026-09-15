@@ -65,7 +65,8 @@ Small EV fleet operators (50–2,000 two-wheelers and three-wheelers in delivery
 
 ### 1. Spatial Deficit Clustering
 Filters trips meeting any battery shortage or high charging urgency criterion:
-$$\text{Deficit Condition} = (\text{charging\_required} == \text{True}) \lor (\text{fuzzy\_urgency} \ge 50.0) \lor (\text{range\_margin\_km} < 2.0\text{ km})$$
+$$\text{Deficit Condition} \iff (C_{\text{req}} = \text{True}) \lor (P_{\text{urgency}} \ge 50.0\%) \lor (\Delta_{\text{margin}} < 2.0\text{ km})$$
+where $C_{\text{req}}$ denotes `charging_required`, $P_{\text{urgency}}$ denotes `fuzzy_urgency`, and $\Delta_{\text{margin}}$ denotes `range_margin_km`.
 
 * **DBSCAN (Density-Based Spatial Clustering of Applications with Noise):** Uses the great-circle Haversine metric on radians with angular radius $\varepsilon = \frac{2.0\text{ km}}{6371.0088\text{ km}} \approx 3.139 \times 10^{-4}\text{ rad}$ and $\text{MinPts} = 5$ to detect core commercial charging bottleneck corridors while filtering out isolated transient dropouts:
   $$d_{\text{haversine}}(p_i, p_j) = 2 R \arcsin \sqrt{\sin^2\left(\frac{\phi_j - \phi_i}{2}\right) + \cos(\phi_i) \cos(\phi_j) \sin^2\left(\frac{\lambda_j - \lambda_i}{2}\right)}$$
