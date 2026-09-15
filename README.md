@@ -103,16 +103,24 @@ $$
 - **Negative GIS Exclusion Masking**: Rigorously rejects points falling on water bodies (Mula/Mutha riverbeds, Pashan Lake, Khadakwasla) and steep uninhabited hills (Vetal Tekdi, Taljai).
 - **DBSCAN Spatial Density Clustering**:
   Groups spatial battery shortage events (`charging_required == True`, `fuzzy_urgency` $\ge 50\%$, or `range_margin_km` $< 2\text{ km}$) into dense geographic charging deficit hotspots ($\varepsilon = 2.0\text{ km}$, $\text{MinPts} = 5$):
-  - **Great-Circle Haversine Distance**:
+  - **Great-Circle Haversine Distance & DBSCAN Core Condition**:
 
 $$
 d = 2R \arcsin \sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}
+$$
+
+$$
+\mathcal{N}_\varepsilon(p) = \{ q \in \mathcal{D} \mid d_{\text{haversine}}(p, q) \le \varepsilon \}, \quad |\mathcal{N}_\varepsilon(p)| \ge \text{MinPts}
 $$
 
   - **Cluster Centroid & Deficit Energy**: Computes the geographic center coordinate vector $\mathbf{c}_k = (\bar{\phi}_k, \bar{\lambda}_k)$ and aggregate deficit energy ($E_k$ in kWh) across all $N_k$ trip deficit points in cluster $k$:
 
 $$
 \mathbf{c}_k = \frac{1}{N_k} \sum_{i=1}^{N_k} \mathbf{p}_i, \qquad E_k = \sum_{i=1}^{N_k} E_i
+$$
+
+$$
+\text{where } \mathbf{p}_i = (\text{lat}_i, \text{lon}_i) \text{ and } E_i \text{ is the individual trip battery deficit in kWh.}
 $$
 - **Multi-Objective Placement Optimization**:
   Maximizes deficit fulfillment while enforcing urban circuity ($\tau = 1.32$), minimum station spacing ($2.0\text{ km}$), and snapping to verified commercial forecourts and metro depots.
