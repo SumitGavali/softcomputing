@@ -60,13 +60,23 @@ This project integrates three complementary pillars of computational intelligenc
   - `charge_rate_proxy`: Ratio of current density during operational charging.
   - `discharge_index`: Depth of discharge operational baseline.
 - **Model**: Scikit-Learn `RandomForestRegressor` trained to predict:
-  $$\text{SoH} = \frac{C_{\text{current}}}{C_{\text{nominal}}} \times 100\%$$
-  $$\text{Usable Range (km)} = \text{Rated Range} \times \frac{\text{SoH}}{100}$$
+
+$$
+\text{SoH} = \frac{C_{\text{current}}}{C_{\text{nominal}}} \times 100\%
+$$
+
+$$
+\text{Usable Range (km)} = \text{Rated Range} \times \frac{\text{SoH}}{100}
+$$
 
 ### 2. Module 2 — Soft Computing (Mamdani Fuzzy Logic Inference)
 - **Vehicle Energy Physics Model**:
   Computes effective driving demand factoring payload, thermal losses, and elevation:
-  $$E_{\text{demand}} = d_{\text{trip}} \times k_{\text{base}} \times \tau_{\text{terrain}} \times \eta_{\text{temp}} \times \mu_{\text{payload}}$$
+
+$$
+E_{\text{demand}} = d_{\text{trip}} \times k_{\text{base}} \times \tau_{\text{terrain}} \times \eta_{\text{temp}} \times \mu_{\text{payload}}
+$$
+
   where:
   - $\tau_{\text{terrain}} \in \{1.00 \text{ (Flat)}, 1.15 \text{ (Hilly)}, 1.35 \text{ (Mountain)}\}$
   - $\eta_{\text{temp}}$ applies piece-wise thermal derating for extreme heat ($>32^\circ\text{C}$) and cold ($<20^\circ\text{C}$)
@@ -80,7 +90,9 @@ This project integrates three complementary pillars of computational intelligenc
 - **Centroid Defuzzification**:
   Converts the aggregated Mamdani fuzzy output into a crisp dispatch priority score (`fuzzy_urgency` $\in [0, 100]\%$) using Center of Gravity (COG) centroid defuzzification:
 
-  $$z^* = \frac{\sum_{i=1}^n z_i \cdot \mu(z_i)}{\sum_{i=1}^n \mu(z_i)}$$
+$$
+z^* = \frac{\sum_{i=1}^n z_i \cdot \mu(z_i)}{\sum_{i=1}^n \mu(z_i)}
+$$
 
   - **Critical Deficit** ($z^* \ge 75\%$): Mandatory mid-route charging intervention required before dispatch.
   - **Deficit Warning** ($50\% \le z^* < 75\%$): Opportunity top-up recommended along designated route corridor.
@@ -93,11 +105,17 @@ This project integrates three complementary pillars of computational intelligenc
   Groups spatial battery shortage events (`charging_required == True`, `fuzzy_urgency` $\ge 50\%$, or `range_margin_km` $< 2\text{ km}$) into dense geographic charging deficit hotspots ($\varepsilon = 2.0\text{ km}$, $\text{MinPts} = 5$):
   - **Great-Circle Haversine Distance**:
 
-    $$d = 2R \arcsin \sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}$$
+$$
+d = 2R \arcsin \sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}
+$$
 
-  - **Cluster Centroid & Deficit Energy**: Computes the mean coordinates $(\bar{\phi}_k, \bar{\lambda}_k)$ and aggregate deficit energy ($E_k$) for each cluster:
+  - **Cluster Centroid & Deficit Energy**: Computes the geographic center and aggregate deficit energy for each cluster:
 
-    $$\bar{\phi}_k = \frac{1}{N_k} \sum_{i=1}^{N_k} \phi_i, \quad \bar{\lambda}_k = \frac{1}{N_k} \sum_{i=1}^{N_k} \lambda_i, \quad E_k = \sum_{i=1}^{N_k} E_i$$
+$$
+\mathbf{c}_k = \frac{1}{N_k} \sum_{i=1}^{N_k} \mathbf{p}_i, \qquad E_k = \sum_{i=1}^{N_k} E_i
+$$
+
+    where $\mathbf{p}_i = (\text{lat}_i, \text{lon}_i)$ and $E_i$ is the individual trip battery deficit in kWh.
 - **Multi-Objective Placement Optimization**:
   Maximizes deficit fulfillment while enforcing urban circuity ($\tau = 1.32$), minimum station spacing ($2.0\text{ km}$), and snapping to verified commercial forecourts and metro depots.
 - **Street-Level Routing**: OpenStreetMap OSRM routing engine generating turn-by-turn GeoJSON navigation paths across roads and bridges.

@@ -68,11 +68,21 @@ Filters trips meeting any battery shortage or high charging urgency criterion (`
 
 * **DBSCAN Spatial Clustering:** Uses the great-circle Haversine metric ($\varepsilon = 2.0\text{ km}$, $\text{MinPts} = 5$) to detect core commercial charging bottleneck corridors:
 
-  $$d = 2R \arcsin \sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}$$
+$$
+d = 2R \arcsin \sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}
+$$
+
+* **Cluster Centroid & Deficit Energy:** Aggregates coordinates and deficit energy for candidate clusters:
+
+$$
+\mathbf{c}_k = \frac{1}{N_k} \sum_{i=1}^{N_k} \mathbf{p}_i, \qquad E_k = \sum_{i=1}^{N_k} E_i
+$$
 
 * **Fuzzy C-Means (FCM) Soft Computing Partition:** Computes degrees of membership $u_{ij}$ of deficit $i$ to station centroid $j$:
 
-  $$u_{ij} = \frac{1}{\sum_{k=1}^{C} \left(\frac{d(x_i, c_j)}{d(x_i, c_k)}\right)^{\frac{2}{m-1}}}$$
+$$
+u_{ij} = \frac{1}{\sum_{k=1}^{C} \left(\frac{d(x_i, c_j)}{d(x_i, c_k)}\right)^{\frac{2}{m-1}}}
+$$
 
   where $m = 2.0$ is the fuzzifier, reflecting that delivery routes near boundary areas can access overlapping hubs.
 
