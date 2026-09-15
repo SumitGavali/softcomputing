@@ -60,13 +60,23 @@ This project integrates three complementary pillars of computational intelligenc
   - `charge_rate_proxy`: Ratio of current density during operational charging.
   - `discharge_index`: Depth of discharge operational baseline.
 - **Model**: Scikit-Learn `RandomForestRegressor` trained to predict:
-  $$\text{SoH} = \frac{C_{\text{current}}}{C_{\text{nominal}}} \times 100\%$$
-  $$\text{Usable Range (km)} = \text{Rated Range} \times \frac{\text{SoH}}{100}$$
+
+$$
+\text{SoH} = \frac{C_{\text{current}}}{C_{\text{nominal}}} \times 100\%
+$$
+
+$$
+\text{Usable Range (km)} = \text{Rated Range} \times \frac{\text{SoH}}{100}
+$$
 
 ### 2. Module 2 — Soft Computing (Mamdani Fuzzy Logic Inference)
 - **Vehicle Energy Physics Model**:
   Computes effective driving demand factoring payload, thermal losses, and elevation:
-  $$E_{\text{demand}} = d_{\text{trip}} \times k_{\text{base}} \times \tau_{\text{terrain}} \times \eta_{\text{temp}} \times \mu_{\text{payload}}$$
+
+$$
+E_{\text{demand}} = d_{\text{trip}} \times k_{\text{base}} \times \tau_{\text{terrain}} \times \eta_{\text{temp}} \times \mu_{\text{payload}}
+$$
+
   where:
   - $\tau_{\text{terrain}} \in \{1.00 \text{ (Flat)}, 1.15 \text{ (Hilly)}, 1.35 \text{ (Mountain)}\}$
   - $\eta_{\text{temp}}$ applies piece-wise thermal derating for extreme heat ($>32^\circ\text{C}$) and cold ($<20^\circ\text{C}$)
@@ -77,12 +87,41 @@ This project integrates three complementary pillars of computational intelligenc
   2. `initial_soc_percent`: [Low, Medium, High]
   3. `effective_trip_demand_km`: [Short, Medium, Long]
   4. `range_margin_km`: [Negative_Critical, Low_Risk, Adequate, Surplus]
-- **Defuzzification**: Centroid Mamdani defuzzification computing a continuous dispatch priority score $\text{fuzzy\_urgency} \in [0, 100]\%$.
+- **Centroid Defuzzification**:
+  Converts the aggregated Mamdani fuzzy output into a crisp dispatch priority score (`fuzzy_urgency` $\in [0, 100]\%$) using Center of Gravity (COG) centroid defuzzification:
+
+$$
+z^* = \frac{\sum_{i=1}^n z_i \cdot \mu(z_i)}{\sum_{i=1}^n \mu(z_i)}
+$$
+
+  - **Critical Deficit** ($z^* \ge 75\%$): Mandatory mid-route charging intervention required before dispatch.
+  - **Deficit Warning** ($50\% \le z^* < 75\%$): Opportunity top-up recommended along designated route corridor.
+  - **Safe Margin** ($z^* < 50\%$): Vehicle possesses adequate operational buffer to complete assignment safely.
 
 ### 3. Module 3 — Geospatial Optimization & Metaheuristics
 - **Authentic Pune Road Network**: 22 high-density delivery corridors (Hinjawadi, Wakad, Baner, SB Road, Swargate, Nagar Road, Kharadi, Hadapsar, Bhosari MIDC) with dense waypoints every 150m–350m and curbside micro-jitter ($\le 2\text{m}$).
 - **Negative GIS Exclusion Masking**: Rigorously rejects points falling on water bodies (Mula/Mutha riverbeds, Pashan Lake, Khadakwasla) and steep uninhabited hills (Vetal Tekdi, Taljai).
-- **DBSCAN Spatial Density Clustering**: Identifies un-served energy deficit centroids ($d_{\text{haversine}}$ metric, $\varepsilon = 1.8\text{ km}$, $\text{min\_samples} = 4$).
+- **DBSCAN Spatial Density Clustering**:
+  Groups spatial battery shortage events (`charging_required == True`, `fuzzy_urgency` $\ge 50\%$, or `range_margin_km` $< 2\text{ km}$) into dense geographic charging deficit hotspots ($\varepsilon = 2.0\text{ km}$, $\text{MinPts} = 5$):
+  - **Great-Circle Haversine Distance & DBSCAN Core Condition**:
+
+$$
+d = 2R \arcsin \sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}
+$$
+
+$$
+\mathcal{N}_\varepsilon(p) = \{ q \in \mathcal{D} \mid d_{\text{haversine}}(p, q) \le \varepsilon \}, \quad |\mathcal{N}_\varepsilon(p)| \ge \text{MinPts}
+$$
+
+  - **Cluster Centroid & Deficit Energy**: Computes the geographic center coordinate vector $\mathbf{c}_k = (\bar{\phi}_k, \bar{\lambda}_k)$ and aggregate deficit energy ($E_k$ in kWh) across all $N_k$ trip deficit points in cluster $k$:
+
+$$
+\mathbf{c}_k = \frac{1}{N_k} \sum_{i=1}^{N_k} \mathbf{p}_i, \qquad E_k = \sum_{i=1}^{N_k} E_i
+$$
+
+$$
+\text{where } \mathbf{p}_i = (\text{lat}_i, \text{lon}_i) \text{ and } E_i \text{ is the individual trip battery deficit in kWh.}
+$$
 - **Multi-Objective Placement Optimization**:
   Maximizes deficit fulfillment while enforcing urban circuity ($\tau = 1.32$), minimum station spacing ($2.0\text{ km}$), and snapping to verified commercial forecourts and metro depots.
 - **Street-Level Routing**: OpenStreetMap OSRM routing engine generating turn-by-turn GeoJSON navigation paths across roads and bridges.

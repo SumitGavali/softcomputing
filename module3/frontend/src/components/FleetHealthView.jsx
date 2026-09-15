@@ -182,28 +182,45 @@ export default function FleetHealthView({ fleetData }) {
               </tr>
             </thead>
             <tbody>
-              {atRiskList.map((v) => (
-                <tr key={v.vehicle_id}>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {v.vehicle_id}
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--crimson-400)' }}>
-                    {v.soh_percent}%
-                  </td>
-                  <td>
-                    <span className="badge badge-critical">{v.risk_level}</span>
-                  </td>
-                  <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-                    {v.action_required}
-                  </td>
-                  <td>
-                    <span style={{ fontSize: '12px', color: 'var(--amber-400)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--amber-500)' }}></span>
-                      Restrict to Flat/Low-Payload Routes
-                    </span>
+              {atRiskList.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: '28px', marginBottom: '8px' }}>🛡️</div>
+                    <div style={{ fontWeight: 600, color: 'var(--emerald-400)', fontSize: '14px' }}>
+                      All Fleet Vehicles Operating in Nominal Health Range
+                    </div>
+                    <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                      No vehicles currently exceed the critical &lt;75% SoH battery degradation threshold.
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                atRiskList.map((v) => (
+                  <tr key={v.vehicle_id}>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {v.vehicle_id}
+                    </td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--crimson-400)' }}>
+                      {v.soh_percent}%
+                    </td>
+                    <td>
+                      <span className="priority-pill priority-pill-critical">
+                        <span className="priority-dot" />
+                        {v.risk_level || 'Critical Degradation'}
+                      </span>
+                    </td>
+                    <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                      {v.action_required}
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '12px', color: 'var(--amber-400)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--amber-500)' }}></span>
+                        Restrict to Flat/Low-Payload Routes
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

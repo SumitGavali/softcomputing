@@ -27,12 +27,12 @@ class PlacementSimulationRequest(BaseModel):
 
 
 class PreTripSimRequest(BaseModel):
-    trip_distance_km: float = Field(25.0, ge=1.0, le=150.0)
-    initial_soc_percent: float = Field(50.0, ge=10.0, le=100.0)
-    soh_percent: float = Field(82.0, ge=40.0, le=100.0)
-    ambient_temperature_c: float = Field(30.0, ge=5.0, le=50.0)
+    trip_distance_km: float = Field(25.0, ge=0.5, le=200.0)
+    initial_soc_percent: float = Field(50.0, ge=0.0, le=100.0)
+    soh_percent: float = Field(82.0, ge=20.0, le=100.0)
+    ambient_temperature_c: float = Field(30.0, ge=-10.0, le=60.0)
     terrain: str = Field("FLAT", description="FLAT, HILLY, or MOUNTAIN")
-    load_kg: float = Field(150.0, ge=70.0, le=350.0)
+    load_kg: float = Field(150.0, ge=40.0, le=500.0)
 
 
 @router.get("/health")
@@ -172,15 +172,15 @@ def simulate_trip(req: PreTripSimRequest):
     if pipeline is not None:
         try:
             from module2.config import RATED_RANGE_KM
-            soh = float(req.soh_percent)
+            soh = req.soh_percent
             trip_dict = {
-                "trip_distance_km": float(req.trip_distance_km),
-                "initial_soc_percent": float(req.initial_soc_percent),
+                "trip_distance_km": req.trip_distance_km,
+                "initial_soc_percent": req.initial_soc_percent,
                 "soh_percent": soh,
                 "estimated_usable_range_km": (soh / 100.0) * RATED_RANGE_KM,
-                "ambient_temperature_c": float(req.ambient_temperature_c),
-                "terrain": str(req.terrain),
-                "load_kg": float(req.load_kg),
+                "ambient_temperature_c": req.ambient_temperature_c,
+                "terrain": req.terrain,
+                "load_kg": req.load_kg,
                 "vehicle_id": "EV-PUNE-001",
                 "trip_id": "sim-dispatch",
             }

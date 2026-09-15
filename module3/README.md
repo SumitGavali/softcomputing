@@ -64,13 +64,35 @@ Small EV fleet operators (50–2,000 two-wheelers and three-wheelers in delivery
 ## Core Algorithms & Formulations
 
 ### 1. Spatial Deficit Clustering
-Filters trips meeting any shortage criterion:
-$$\text{Deficit Condition} = (\text{charging\_required} == \text{True}) \lor (\text{fuzzy\_urgency} \ge 60) \lor (\text{range\_margin\_km} < 0)$$
+Filters trips meeting any battery shortage or high charging urgency criterion (`charging_required == True`, `fuzzy_urgency >= 50.0`, or `range_margin_km < 2.0 km`):
 
-* **DBSCAN (Density-Based Spatial Clustering of Applications with Noise):** Uses Haversine distance metric with $\epsilon = 2.0\text{ km}$ and $\text{min\_samples} = 5$ to detect core charging bottleneck corridors while discarding isolated random dropouts.
+* **DBSCAN Spatial Clustering:** Uses the great-circle Haversine metric ($\varepsilon = 2.0\text{ km}$, $\text{MinPts} = 5$) to detect core commercial charging bottleneck corridors:
+
+$$
+d = 2R \arcsin \sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}
+$$
+
+$$
+\mathcal{N}_\varepsilon(p) = \{ q \in \mathcal{D} \mid d_{\text{haversine}}(p, q) \le \varepsilon \}, \quad |\mathcal{N}_\varepsilon(p)| \ge \text{MinPts}
+$$
+
+* **Cluster Centroid & Deficit Energy:** Computes the geographic center coordinate vector $\mathbf{c}_k = (\bar{\phi}_k, \bar{\lambda}_k)$ and aggregate deficit energy ($E_k$ in kWh) across all $N_k$ trip deficit points in cluster $k$:
+
+$$
+\mathbf{c}_k = \frac{1}{N_k} \sum_{i=1}^{N_k} \mathbf{p}_i, \qquad E_k = \sum_{i=1}^{N_k} E_i
+$$
+
+$$
+\text{where } \mathbf{p}_i = (\text{lat}_i, \text{lon}_i) \text{ and } E_i \text{ is the individual trip battery deficit in kWh.}
+$$
+
 * **Fuzzy C-Means (FCM) Soft Computing Partition:** Computes degrees of membership $u_{ij}$ of deficit $i$ to station centroid $j$:
-$$u_{ij} = \frac{1}{\sum_{k=1}^{C} \left(\frac{d(x_i, c_j)}{d(x_i, c_k)}\right)^{\frac{2}{m-1}}}$$
-where $m = 2.0$ is the fuzzifier, reflecting that delivery routes near boundary areas can access overlapping hubs.
+
+$$
+u_{ij} = \frac{1}{\sum_{k=1}^{C} \left(\frac{d(x_i, c_j)}{d(x_i, c_k)}\right)^{\frac{2}{m-1}}}
+$$
+
+  where $m = 2.0$ is the fuzzifier, reflecting that delivery routes near boundary areas can access overlapping hubs.
 
 ### 2. Charging Station Placement Optimizer
 * **Greedy Maximum Coverage Formulation:** Selects top $K$ station locations from discovered candidate clusters subject to a minimum inter-station spacing constraint ($\ge 2.0\text{ km}$) to prevent redundant co-location.
@@ -85,9 +107,17 @@ For each candidate hub, equipment is sized based on aggregate daily and peak hou
 ### 4. Fleet Operational ROI Model
 Quantifies real business value created for the fleet operator:
 * **Deadhead Transit Saved:** Diverting to an in-route hub within 3 km vs returning 6+ km to base saves an average of 4.5 km per charging event:
-$$\text{Monthly Savings}_{\text{deadhead}} = \text{Covered Trips} \times 4.5\text{ km} \times ₹2.50/\text{km}$$
+
+$$
+S_{\text{deadhead}} = N_{\text{trips}} \times 4.5\text{ km} \times \text{₹}2.50/\text{km}
+$$
+
 * **Stranded Rescue Towing Averted:** Strategic charging access resolves ~85% of critical deficit dropouts:
-$$\text{Monthly Savings}_{\text{towing}} = \text{Critical Shortages Covered} \times 0.85 \times ₹1,500/\text{incident}$$
+
+$$
+S_{\text{towing}} = N_{\text{critical}} \times 0.85 \times \text{₹}1{,}500/\text{incident}
+$$
+
 * **Fleet Uptime Gained:** Avoids an average of 1.5 dispatch downtime hours per averted breakdown.
 
 ---
