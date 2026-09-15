@@ -64,15 +64,17 @@ Small EV fleet operators (50–2,000 two-wheelers and three-wheelers in delivery
 ## Core Algorithms & Formulations
 
 ### 1. Spatial Deficit Clustering
-Filters trips meeting any battery shortage or high charging urgency criterion:
-$$\text{Deficit Condition} \iff (C_{\text{req}} = \text{True}) \lor (P_{\text{urgency}} \ge 50.0\%) \lor (\Delta_{\text{margin}} < 2.0\text{ km})$$
-where $C_{\text{req}}$ denotes `charging_required`, $P_{\text{urgency}}$ denotes `fuzzy_urgency`, and $\Delta_{\text{margin}}$ denotes `range_margin_km`.
+Filters trips meeting any battery shortage or high charging urgency criterion (`charging_required == True`, `fuzzy_urgency >= 50.0`, or `range_margin_km < 2.0 km`):
 
-* **DBSCAN (Density-Based Spatial Clustering of Applications with Noise):** Uses the great-circle Haversine metric on radians with angular radius $\varepsilon = \frac{2.0\text{ km}}{6371.0088\text{ km}} \approx 3.139 \times 10^{-4}\text{ rad}$ and $\text{MinPts} = 5$ to detect core commercial charging bottleneck corridors while filtering out isolated transient dropouts:
-  $$d_{\text{haversine}}(p_i, p_j) = 2 R \arcsin \sqrt{\sin^2\left(\frac{\phi_j - \phi_i}{2}\right) + \cos(\phi_i) \cos(\phi_j) \sin^2\left(\frac{\lambda_j - \lambda_i}{2}\right)}$$
+* **DBSCAN Spatial Clustering:** Uses the great-circle Haversine metric ($\varepsilon = 2.0\text{ km}$, $\text{MinPts} = 5$) to detect core commercial charging bottleneck corridors:
+
+  $$d = 2R \arcsin \sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}$$
+
 * **Fuzzy C-Means (FCM) Soft Computing Partition:** Computes degrees of membership $u_{ij}$ of deficit $i$ to station centroid $j$:
-$$u_{ij} = \frac{1}{\sum_{k=1}^{C} \left(\frac{d(x_i, c_j)}{d(x_i, c_k)}\right)^{\frac{2}{m-1}}}$$
-where $m = 2.0$ is the fuzzifier, reflecting that delivery routes near boundary areas can access overlapping hubs.
+
+  $$u_{ij} = \frac{1}{\sum_{k=1}^{C} \left(\frac{d(x_i, c_j)}{d(x_i, c_k)}\right)^{\frac{2}{m-1}}}$$
+
+  where $m = 2.0$ is the fuzzifier, reflecting that delivery routes near boundary areas can access overlapping hubs.
 
 ### 2. Charging Station Placement Optimizer
 * **Greedy Maximum Coverage Formulation:** Selects top $K$ station locations from discovered candidate clusters subject to a minimum inter-station spacing constraint ($\ge 2.0\text{ km}$) to prevent redundant co-location.

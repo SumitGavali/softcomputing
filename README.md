@@ -77,13 +77,11 @@ This project integrates three complementary pillars of computational intelligenc
   2. `initial_soc_percent`: [Low, Medium, High]
   3. `effective_trip_demand_km`: [Short, Medium, Long]
   4. `range_margin_km`: [Negative_Critical, Low_Risk, Adequate, Surplus]
-- **Defuzzification (Center of Gravity / Centroid Formulation)**:
-  Aggregates active fuzzy implication surfaces via the Mamdani maximum composition ($s\text{-norm}$):
-  $$\mu_C(z) = \max_{k=1}^{K} \left[ \min\left( \mu_{A_1^k}(\text{SoH}), \, \mu_{A_2^k}(\text{SoC}), \, \mu_{A_3^k}(E_{\text{trip}}), \, \mu_{A_4^k}(\Delta_{\text{margin}}), \, \mu_{B^k}(z) \right) \right]$$
-  Computes the continuous centroid balance point $z^*$ across the output universe of discourse $Z = [0, 100]\%$:
-  $$z^* = \frac{\int_{Z} z \cdot \mu_C(z) \, dz}{\int_{Z} \mu_C(z) \, dz} \quad \xrightarrow{\text{discrete discretization}} \quad z^* = \frac{\sum_{j=1}^{M} z_j \cdot \mu_C(z_j)}{\sum_{j=1}^{M} \mu_C(z_j)}$$
-  The resulting crisp scalar defines the dispatch urgency priority score (`fuzzy_urgency`):
-  $$P_{\text{urgency}} = z^* \in [0, 100]\%$$
+- **Centroid Defuzzification**:
+  Converts the aggregated Mamdani fuzzy output into a crisp dispatch priority score (`fuzzy_urgency` $\in [0, 100]\%$) using Center of Gravity (COG) centroid defuzzification:
+
+  $$z^* = \frac{\sum_{i=1}^n z_i \cdot \mu(z_i)}{\sum_{i=1}^n \mu(z_i)}$$
+
   - **Critical Deficit** ($z^* \ge 75\%$): Mandatory mid-route charging intervention required before dispatch.
   - **Deficit Warning** ($50\% \le z^* < 75\%$): Opportunity top-up recommended along designated route corridor.
   - **Safe Margin** ($z^* < 50\%$): Vehicle possesses adequate operational buffer to complete assignment safely.
@@ -92,18 +90,14 @@ This project integrates three complementary pillars of computational intelligenc
 - **Authentic Pune Road Network**: 22 high-density delivery corridors (Hinjawadi, Wakad, Baner, SB Road, Swargate, Nagar Road, Kharadi, Hadapsar, Bhosari MIDC) with dense waypoints every 150m–350m and curbside micro-jitter ($\le 2\text{m}$).
 - **Negative GIS Exclusion Masking**: Rigorously rejects points falling on water bodies (Mula/Mutha riverbeds, Pashan Lake, Khadakwasla) and steep uninhabited hills (Vetal Tekdi, Taljai).
 - **DBSCAN Spatial Density Clustering**:
-  Groups spatial battery shortage events into dense geographic charging deficit hotspots using a great-circle spherical distance metric:
-  - **Trip Deficit Ingestion Condition**:
-    $$\text{Deficit}(\text{trip}) \iff (C_{\text{req}} = \text{True}) \lor (P_{\text{urgency}} \ge 50.0\%) \lor (\Delta_{\text{margin}} < 2.0\text{ km})$$
-    where $C_{\text{req}}$ denotes `charging_required`, $P_{\text{urgency}}$ denotes `fuzzy_urgency`, and $\Delta_{\text{margin}}$ denotes `range_margin_km`.
-  - **Spherical Haversine Metric**:
-    $$d_{\text{haversine}}(p_i, p_j) = 2 R \arcsin \sqrt{\sin^2\left(\frac{\phi_j - \phi_i}{2}\right) + \cos(\phi_i) \cos(\phi_j) \sin^2\left(\frac{\lambda_j - \lambda_i}{2}\right)}$$
-    where $R = 6371.0088\text{ km}$, $\phi$ denotes latitude in radians, and $\lambda$ denotes longitude in radians.
-  - **Angular Radius Neighborhood & Core Point Density**:
-    $$\varepsilon_{\text{rad}} = \frac{\varepsilon_{\text{km}}}{R_{\text{Earth}}} = \frac{2.0\text{ km}}{6371.0088\text{ km}} \approx 3.139 \times 10^{-4}\text{ rad}, \quad \text{MinPts} = 5$$
-    $$\mathcal{N}_{\varepsilon}(p) = \{ q \in \mathcal{D} \mid d_{\text{haversine}}(p, q) \le \varepsilon_{\text{km}} \}, \quad |\mathcal{N}_{\varepsilon}(p)| \ge \text{MinPts}$$
-  - **Hotspot Centroid & Energy Deficit Mass**:
-    $$\mathbf{c}_k = \left( \frac{1}{|C_k|} \sum_{p \in C_k} \text{lat}_p, \, \frac{1}{|C_k|} \sum_{p \in C_k} \text{lon}_p \right), \quad E_k = \sum_{p \in C_k} E_{\text{deficit}}(p)$$
+  Groups spatial battery shortage events (`charging_required == True`, `fuzzy_urgency` $\ge 50\%$, or `range_margin_km` $< 2\text{ km}$) into dense geographic charging deficit hotspots ($\varepsilon = 2.0\text{ km}$, $\text{MinPts} = 5$):
+  - **Great-Circle Haversine Distance**:
+
+    $$d = 2R \arcsin \sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}$$
+
+  - **Cluster Centroid & Deficit Energy**: Computes the mean coordinates $(\bar{\phi}_k, \bar{\lambda}_k)$ and aggregate deficit energy ($E_k$) for each cluster:
+
+    $$\bar{\phi}_k = \frac{1}{N_k} \sum_{i=1}^{N_k} \phi_i, \quad \bar{\lambda}_k = \frac{1}{N_k} \sum_{i=1}^{N_k} \lambda_i, \quad E_k = \sum_{i=1}^{N_k} E_i$$
 - **Multi-Objective Placement Optimization**:
   Maximizes deficit fulfillment while enforcing urban circuity ($\tau = 1.32$), minimum station spacing ($2.0\text{ km}$), and snapping to verified commercial forecourts and metro depots.
 - **Street-Level Routing**: OpenStreetMap OSRM routing engine generating turn-by-turn GeoJSON navigation paths across roads and bridges.
